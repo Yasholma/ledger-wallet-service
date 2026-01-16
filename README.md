@@ -453,6 +453,33 @@ All write operations (funding and transfers) are idempotent via the `Idempotency
 
    Expired keys can be cleaned up periodically. In a production system, this would run as a background job.
 
+### Known Limitations & Concerns
+
+**Cross-User Idempotency Key Collisions**
+
+The current implementation uses global idempotency keys (not scoped to users). This means:
+
+- **Different request bodies**: If two different users use the same idempotency key with different request bodies (e.g., different `walletId`), the system correctly detects this via request hash comparison and returns `409 Conflict`.
+
+- **Same request body, different users**: If two different users use the same idempotency key with identical request bodies (e.g., same `walletId`, `amount`, `externalPaymentRef`), the second user will receive the first user's cached response. This is a potential security/data integrity concern.
+
+**Why this happens:**
+
+Without authentication, the system cannot determine which user is making the request. The idempotency key is currently global and not scoped to users or wallets.
+
+**Production Recommendations:**
+
+1. **Scope keys by authenticated user ID**: When authentication is implemented, prefix idempotency keys with the authenticated user ID (e.g., `{userId}:{idempotencyKey}`) to prevent cross-user collisions.
+
+2. **Scope keys by wallet ID**: As an alternative without authentication, scope keys by `walletId` from the request body (e.g., `{walletId}:{idempotencyKey}`). Since each wallet belongs to one user, this provides natural scoping.
+
+3. **Database-level scoping**: Add `user_id` column to `idempotency_keys` table and change PRIMARY KEY to `(user_id, key)` for database-enforced scoping.
+
+**Current Behavior:**
+
+- Same key + different request body → `409 Conflict` ✅ (correctly detected)
+- Same key + same request body + different users → Returns first user's response ⚠️ (limitation)
+
 ## Data Integrity Rules
 
 - **No Negative Balances**: Transfers validate sufficient balance before creating ledger entries
