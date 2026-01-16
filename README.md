@@ -599,4 +599,4 @@ tests/
 
 ## License
 
-None
+MIT
