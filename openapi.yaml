@@ -101,7 +101,20 @@ paths:
                   wallet:
                     $ref: "#/components/schemas/Wallet"
         "400":
-          $ref: "#/components/responses/BadRequest"
+          description: Bad request - validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                invalidEmail:
+                  value:
+                    error: VALIDATION_ERROR
+                    message: "Validation failed: email: Invalid email format"
+                invalidName:
+                  value:
+                    error: VALIDATION_ERROR
+                    message: "Validation failed: name: Name cannot be empty"
         "409":
           description: User with this email already exists
           content:
@@ -523,18 +536,19 @@ components:
       properties:
         error:
           type: string
-          example: VALIDATION_ERROR
         message:
           type: string
-          example: "Validation failed: amount must be a positive integer, senderWalletId must be a valid UUID, receiverWalletId must be a valid UUID"
 
   responses:
     BadRequest:
-      description: Bad request
+      description: Bad request - validation error
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+          example:
+            error: VALIDATION_ERROR
+            message: "Validation failed: field_name: error message"
 
     NotFound:
       description: Resource not found
@@ -542,6 +556,9 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+          example:
+            error: WALLET_NOT_FOUND
+            message: "Wallet with id 123e4567-e89b-12d3-a456-426614174000 not found"
 
     InternalServerError:
       description: Internal server error
@@ -549,3 +566,6 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+          example:
+            error: INTERNAL_SERVER_ERROR
+            message: "An unexpected error occurred"
