@@ -108,6 +108,45 @@ describe("E2E: Transactions API", () => {
       expect(entryCount).toBe(1);
     });
 
+    it("should return 409 when same idempotency key is used with different payload", async () => {
+      // Use unique idempotency key and payment ref to avoid conflicts
+      const idempotencyKey = `fund-conflict-${Date.now()}-${Math.random()}`;
+      const uniquePaymentRef1 = `payment-conflict-1-${Date.now()}-${Math.random()}`;
+      const uniquePaymentRef2 = `payment-conflict-2-${Date.now()}-${Math.random()}`;
+
+      // First request with idempotency key and payload A
+      await request(app)
+        .post("/api/v1/transactions/fund")
+        .set("Idempotency-Key", idempotencyKey)
+        .send({
+          walletId: wallet1Id,
+          amount: 3000,
+          externalPaymentRef: uniquePaymentRef1,
+        })
+        .expect(201);
+
+      // Second request with same idempotency key but different payload (different amount)
+      const response = await request(app)
+        .post("/api/v1/transactions/fund")
+        .set("Idempotency-Key", idempotencyKey)
+        .send({
+          walletId: wallet1Id,
+          amount: 5000, // Different amount
+          externalPaymentRef: uniquePaymentRef2,
+        })
+        .expect(409);
+
+      expect(response.body).toHaveProperty("error");
+      expect(response.body.error).toBe("IDEMPOTENCY_KEY_CONFLICT");
+      expect(response.body.message).toContain(
+        "Idempotency key exists but request does not match"
+      );
+
+      // Should still have only one ledger entry (from first request)
+      const entryCount = await countLedgerEntries(wallet1Id);
+      expect(entryCount).toBe(1);
+    });
+
     it("should prevent duplicate external payment ref", async () => {
       // Use unique external ref to avoid conflicts with other tests
       const externalRef = `payment-unique-${Date.now()}-${Math.random()}`;
@@ -318,6 +357,44 @@ describe("E2E: Transactions API", () => {
       const balance2 = await getWalletBalance(wallet2Id);
       expect(balance1).toBe(8000); // 10000 - 2000 (only once)
       expect(balance2).toBe(2000); // 0 + 2000 (only once)
+    });
+
+    it("should return 409 when same idempotency key is used with different payload", async () => {
+      const idempotencyKey = `transfer-conflict-${Date.now()}-${Math.random()}`;
+
+      // First request with idempotency key and payload A
+      await request(app)
+        .post("/api/v1/transactions/transfer")
+        .set("Idempotency-Key", idempotencyKey)
+        .send({
+          senderWalletId: wallet1Id,
+          receiverWalletId: wallet2Id,
+          amount: 2000,
+        })
+        .expect(201);
+
+      // Second request with same idempotency key but different payload (different amount)
+      const response = await request(app)
+        .post("/api/v1/transactions/transfer")
+        .set("Idempotency-Key", idempotencyKey)
+        .send({
+          senderWalletId: wallet1Id,
+          receiverWalletId: wallet2Id,
+          amount: 3000, // Different amount
+        })
+        .expect(409);
+
+      expect(response.body).toHaveProperty("error");
+      expect(response.body.error).toBe("IDEMPOTENCY_KEY_CONFLICT");
+      expect(response.body.message).toContain(
+        "Idempotency key exists but request does not match"
+      );
+
+      // Should only have transferred once (from first request)
+      const balance1 = await getWalletBalance(wallet1Id);
+      const balance2 = await getWalletBalance(wallet2Id);
+      expect(balance1).toBe(8000); // 10000 - 2000 (only first transfer executed)
+      expect(balance2).toBe(2000); // 0 + 2000 (only first transfer executed)
     });
 
     it("should return 400 for zero amount", async () => {
