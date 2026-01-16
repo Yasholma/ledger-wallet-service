@@ -14,11 +14,19 @@ A fintech-style ledger service for managing user balances and transfers. This se
 
 ### Technology Stack
 
+**Backend:**
+
 - **Runtime**: Node.js with TypeScript
 - **Framework**: Express.js
 - **Database**: PostgreSQL
 - **Validation**: Zod
 - **Logging**: Winston
+
+**Frontend:**
+
+- **Framework**: React with TypeScript
+- **Build Tool**: Vite
+- **Styling**: CSS with CSS Variables
 
 ### Database Schema
 
@@ -93,6 +101,53 @@ yarn dev
 ```
 
 The server will start on `http://localhost:3000` by default.
+
+### API Documentation
+
+Interactive API documentation is available via Swagger UI:
+
+- **Swagger UI**: [http://localhost:3000/api-docs](http://localhost:3000/api-docs)
+
+The Swagger documentation provides:
+
+- Complete API endpoint descriptions
+- Request/response schemas
+- Example requests and responses
+- Try-it-out functionality for testing endpoints
+
+### Frontend Application
+
+The project includes a React + TypeScript frontend built with Vite that provides a user-friendly interface for interacting with the wallet service.
+
+**Features:**
+
+- Create users and wallets
+- Check wallet balance by email or user ID
+- Fund wallets with external payment references
+- Transfer funds between wallets
+- View transaction history with pagination
+- Session-based wallet ID persistence
+
+**Running the Frontend:**
+
+In development, start the frontend separately:
+
+```bash
+yarn dev:frontend
+```
+
+The frontend will be available at `http://localhost:5173` and automatically connects to the backend API at `http://localhost:3000`.
+
+**Production Build:**
+
+The frontend is automatically built and served with the backend when you run:
+
+```bash
+yarn build
+yarn start
+```
+
+In production mode, the frontend is served from the backend at `http://localhost:3000`.
 
 ## API Endpoints
 
@@ -264,89 +319,118 @@ Health check endpoint with database connectivity verification.
 
 ### Scenario: Two Concurrent Transfers Debiting the Same Wallet
 
-When two transfers attempt to debit the same wallet simultaneously, the system ensures correctness through the following mechanism:
+When two transfers try to debit the same wallet at roughly the same time, the system relies on the database to serialize those operations instead of trying to handle concurrency in application code.
 
-1. **Transaction Isolation**: Both transactions begin with `SERIALIZABLE` isolation level, which provides the strongest consistency guarantee in PostgreSQL. This ensures that transactions see a consistent snapshot of the database and prevents phantom reads.
+Both transfers run inside database transactions, and only one of them is allowed to make progress on a given wallet at any point in time.
 
-2. **Row-Level Locking**: When a transfer begins, it acquires row-level locks on both the sender and receiver wallets using `SELECT ... FOR UPDATE`. This prevents other transactions from modifying these wallets until the lock is released.
+Here’s how that plays out in practice.
 
-3. **Consistent Locking Order**: To prevent deadlocks, wallets are always locked in a consistent order (sorted by wallet ID). This ensures that if two transfers involve overlapping wallets, they will always acquire locks in the same order, eliminating the possibility of circular wait conditions.
+1. **Transactions and isolation**
 
-4. **Balance Calculation**: Within the transaction, the sender's balance is calculated from all committed ledger entries. Because of the row-level lock, no other transaction can modify the ledger entries for this wallet until the lock is released.
+   Each transfer runs inside a PostgreSQL transaction using the `SERIALIZABLE` isolation level. This means every transaction works against a consistent snapshot of the database and PostgreSQL will actively prevent unsafe interleavings.
 
-5. **Sequential Processing**: The first transaction to acquire the lock will:
+2. **Locking the wallets**
 
-   - Calculate the current balance
-   - Validate sufficient funds
-   - Create the debit and credit ledger entries
-   - Commit the transaction
+   As soon as a transfer starts, it locks the sender and receiver wallets using `SELECT ... FOR UPDATE`. Once a wallet is locked, any other transfer touching that wallet has to wait until the current transaction finishes.
 
-6. **Second Transaction Behavior**: The second transaction will wait for the lock to be released. Once it acquires the lock:
-   - It calculates the balance, which now includes the first transaction's debit
-   - If sufficient funds remain, it proceeds; otherwise, it fails validation
-   - The transaction either completes or rolls back atomically
+3. **Always locking in the same order**
 
-### Why This Approach is Safe
+   To avoid deadlocks, wallet rows are always locked in a predictable order (sorted by wallet ID). Even if two transfers involve the same wallets, they’ll try to acquire locks in the same sequence, so they queue instead of deadlocking.
 
-- **No Double-Spending**: The row-level lock ensures that only one transaction can modify a wallet's ledger entries at a time. The balance check happens within the locked transaction, so it sees a consistent state.
+4. **Balance checks happen under the lock**
 
-- **Atomicity**: All operations (balance check, ledger entry creation, transfer status update) happen within a single database transaction. If any step fails, the entire transaction rolls back, leaving the system in a consistent state.
+   The sender’s balance is calculated after the lock is acquired by summing committed ledger entries. While the lock is held, no other transaction can add new entries for that wallet, so the balance check is reliable.
 
-- **Isolation**: SERIALIZABLE isolation prevents transactions from seeing uncommitted changes from other transactions, ensuring that balance calculations are based on committed data only.
+5. **What happens under contention**
 
-- **Deadlock Prevention**: Consistent locking order eliminates the possibility of deadlocks when multiple transfers involve overlapping wallets.
+   - The first transaction that gets the lock:
+
+     - Calculates the balance
+     - Verifies sufficient funds
+     - Writes the debit and credit ledger entries
+     - Commits
+
+   - The second transaction waits. Once it continues:
+     - It recalculates the balance, now including the first debit
+     - Proceeds only if funds are still available
+     - Otherwise fails and rolls back
+
+---
+
+### Why This Works
+
+- **No double spending**  
+  Only one transaction can modify a wallet at a time, and balance checks happen while holding the lock.
+
+- **All-or-nothing behavior**  
+  Ledger writes, balance validation, and transfer updates live in the same transaction. If anything fails, nothing is persisted.
+
+- **Isolation you can trust**  
+  Using `SERIALIZABLE` means transfers never see partial or inconsistent data, even under heavy concurrency.
+
+- **Deadlocks are avoided by design**  
+  Consistent lock ordering removes the most common cause of deadlocks in this kind of workflow.
+
+---
 
 ### Database Guarantees We Rely On
 
-1. **ACID Transactions**: PostgreSQL's transaction system ensures atomicity, consistency, isolation, and durability.
+Instead of reinventing concurrency control, the system leans on PostgreSQL’s guarantees:
 
-2. **SERIALIZABLE Isolation Level**: This is the strongest isolation level, providing true serialization of concurrent transactions. It prevents:
+- **ACID transactions** for atomicity and durability
+- **`SERIALIZABLE` isolation** to prevent unsafe concurrent behavior
+- **Row-level locks (`SELECT FOR UPDATE`)** to protect wallets during transfers
+- **Unique constraints** (e.g. `external_payment_ref`) to prevent duplicate funding
+- **Foreign keys** to enforce referential integrity
 
-   - Dirty reads
-   - Non-repeatable reads
-   - Phantom reads
-   - Serialization anomalies
+---
 
-3. **Row-Level Locking (SELECT FOR UPDATE)**: This provides exclusive locks on specific rows, preventing concurrent modifications.
+### Failure Scenarios
 
-4. **Unique Constraints**: The `external_payment_ref` column has a UNIQUE constraint, preventing duplicate funding operations at the database level.
+- **Insufficient balance**  
+  The transaction fails validation and rolls back. No ledger entries are created.
 
-5. **Foreign Key Constraints**: These ensure referential integrity between wallets, users, and ledger entries.
+- **Wallet not found**  
+  The transaction rolls back and returns an error.
 
-### Failure Scenarios and Recovery
+- **Database failure mid-transfer**  
+  PostgreSQL rolls back automatically. There’s no partial state.
 
-- **Insufficient Balance**: Transaction rolls back atomically, no ledger entries are created, wallet state unchanged.
+- **Deadlocks**  
+  PostgreSQL can abort one transaction, but with consistent locking order this should be extremely rare.
 
-- **Wallet Not Found**: Transaction rolls back, returns 404 error.
+- **Concurrent idempotency requests**  
+  Handled at the database level using `INSERT ... ON CONFLICT`.
 
-- **Database Connection Loss**: Transaction automatically rolls back, no partial state.
-
-- **Deadlock (theoretical)**: PostgreSQL automatically detects and rolls back one transaction, which can be retried. Our consistent locking order makes this extremely rare.
-
-- **Concurrent Idempotency Key Insert**: Handled via `INSERT ... ON CONFLICT`, ensuring only one request with the same key is processed.
+---
 
 ## Idempotency
 
-All write operations (funding and transfers) support idempotency via the `Idempotency-Key` header.
+All write operations (funding and transfers) are idempotent via the `Idempotency-Key` header.
 
 ### How It Works
 
-1. **Key Storage**: Idempotency keys are stored in the `idempotency_keys` table with:
+1. **Key storage**
 
-   - The idempotency key (primary key)
+   Each idempotency key is stored alongside:
+
    - A hash of the request body
    - The response status and body
    - An expiration timestamp (default: 24 hours)
 
-2. **Request Processing**:
+2. **Request handling**
 
-   - If the key exists and request hash matches → return cached response
-   - If the key exists but hash differs → return 409 Conflict
-   - If the key doesn't exist → process request and store response
+   - Key exists and request hash matches → return the stored response
+   - Key exists but hash differs → return `409 Conflict`
+   - Key does not exist → process the request and store the result
 
-3. **Conflict Handling**: Uses `INSERT ... ON CONFLICT` to handle race conditions when multiple requests with the same key arrive simultaneously.
+3. **Concurrency handling**
 
-4. **Cleanup**: Expired keys can be cleaned up via the `cleanupExpiredKeys()` method. In production, this would run as a periodic background job.
+   Multiple requests with the same key are handled safely using `INSERT ... ON CONFLICT`, so only one request actually executes.
+
+4. **Cleanup**
+
+   Expired keys can be cleaned up periodically. In a production system, this would run as a background job.
 
 ## Data Integrity Rules
 
@@ -494,4 +578,4 @@ tests/
 
 ## License
 
-ISC
+None
