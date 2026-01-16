@@ -13,7 +13,7 @@ info:
     name: API Support
 
 servers:
-  - url: http://localhost:3000
+  - url: http://localhost:3000/api/v1
     description: Local development server
 
 tags:
@@ -272,11 +272,20 @@ paths:
                   transfer:
                     $ref: "#/components/schemas/Transfer"
         "400":
-          description: Validation error or insufficient balance
+          description: Validation error (e.g., same sender and receiver wallet, zero/negative amount) or insufficient balance
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              examples:
+                validation_error:
+                  value:
+                    error: "VALIDATION_ERROR"
+                    message: "Cannot transfer funds from a wallet to itself"
+                insufficient_balance:
+                  value:
+                    error: "INSUFFICIENT_BALANCE"
+                    message: "Insufficient balance. Available: $100.00, Required: $200.00"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":

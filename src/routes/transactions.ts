@@ -23,11 +23,16 @@ const fundWalletSchema = {
 };
 
 const transferSchema = {
-  body: z.object({
-    senderWalletId: uuidSchema,
-    receiverWalletId: uuidSchema,
-    amount: positiveIntegerSchema,
-  }),
+  body: z
+    .object({
+      senderWalletId: uuidSchema,
+      receiverWalletId: uuidSchema,
+      amount: positiveIntegerSchema,
+    })
+    .refine((data) => data.senderWalletId !== data.receiverWalletId, {
+      message: "Cannot transfer funds from a wallet to itself",
+      path: ["receiverWalletId"],
+    }),
 };
 
 const getTransactionsSchema = {
@@ -48,9 +53,9 @@ router.post(
   idempotencyMiddleware,
   validate(fundWalletSchema),
   async (req: Request, res: Response, next: NextFunction) => {
-    const correlationId = createRequestId();
+    const requestId = createRequestId();
     logger.info("Funding wallet", {
-      correlationId,
+      requestId,
       walletId: req.body.walletId,
       amount: req.body.amount,
       externalPaymentRef: req.body.externalPaymentRef,
@@ -72,7 +77,7 @@ router.post(
       });
     } catch (error) {
       logger.error("Failed to fund wallet", {
-        correlationId,
+        requestId,
         error: error instanceof Error ? error.message : String(error),
       });
       next(error);

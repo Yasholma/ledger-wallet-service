@@ -7,10 +7,10 @@ describe('E2E: Users API', () => {
     await cleanupTestData();
   });
 
-  describe('POST /users', () => {
+  describe('POST /api/v1/users', () => {
     it('should create a new user successfully', async () => {
       const response = await request(app)
-        .post('/users')
+        .post('/api/v1/users')
         .send({
           email: 'test@example.com',
           name: 'Test User',
@@ -28,7 +28,7 @@ describe('E2E: Users API', () => {
 
     it('should return 400 for invalid email', async () => {
       const response = await request(app)
-        .post('/users')
+        .post('/api/v1/users')
         .send({
           email: 'invalid-email',
           name: 'Test User',
@@ -40,7 +40,7 @@ describe('E2E: Users API', () => {
 
     it('should return 400 for missing required fields', async () => {
       const response = await request(app)
-        .post('/users')
+        .post('/api/v1/users')
         .send({
           email: 'test@example.com',
         })
@@ -55,7 +55,7 @@ describe('E2E: Users API', () => {
 
       // Try to create duplicate via API
       const response = await request(app)
-        .post('/users')
+        .post('/api/v1/users')
         .send({
           email: 'duplicate@example.com',
           name: 'Second User',

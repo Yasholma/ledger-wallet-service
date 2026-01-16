@@ -151,7 +151,9 @@ In production mode, the frontend is served from the backend at `http://localhost
 
 ## API Endpoints
 
-### POST /users
+All API endpoints are versioned under `/api/v1`.
+
+### POST /api/v1/users
 
 Create a new user and associated wallet.
 
@@ -182,9 +184,9 @@ Create a new user and associated wallet.
 }
 ```
 
-### GET /wallets/:userId/balance
+### GET /api/v1/wallets/:userId/balance
 
-Get the current balance for a user's wallet.
+Get the current balance for a user's wallet by user ID.
 
 **Response:**
 
@@ -196,7 +198,26 @@ Get the current balance for a user's wallet.
 }
 ```
 
-### POST /transactions/fund
+### GET /api/v1/wallets/balance/by-email/:email
+
+Get the current balance for a user's wallet by email address.
+
+**Parameters:**
+
+- `email` (path): User's email address
+
+**Response:**
+
+```json
+{
+  "wallet_id": "uuid",
+  "user_id": "uuid",
+  "email": "user@example.com",
+  "balance": 10000
+}
+```
+
+### POST /api/v1/transactions/fund
 
 Fund a wallet via external payment reference. Requires `Idempotency-Key` header.
 
@@ -232,7 +253,7 @@ Idempotency-Key: <unique-key>
 }
 ```
 
-### POST /transactions/transfer
+### POST /api/v1/transactions/transfer
 
 Transfer funds between two wallets. Requires `Idempotency-Key` header.
 
@@ -267,7 +288,7 @@ Idempotency-Key: <unique-key>
 }
 ```
 
-### GET /transactions
+### GET /api/v1/transactions
 
 Get transaction history for a wallet.
 
@@ -301,7 +322,7 @@ Get transaction history for a wallet.
 }
 ```
 
-### GET /health
+### GET /api/v1/health
 
 Health check endpoint with database connectivity verification.
 

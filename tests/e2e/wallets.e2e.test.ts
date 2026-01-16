@@ -28,10 +28,10 @@ describe('E2E: Wallets API', () => {
     expect(walletId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
   });
 
-  describe('GET /wallets/:userId/balance', () => {
+  describe('GET /api/v1/wallets/:userId/balance', () => {
     it('should return 0 balance for new wallet', async () => {
       const response = await request(app)
-        .get(`/wallets/${userId}/balance`)
+        .get(`/api/v1/wallets/${userId}/balance`)
         .expect(200);
 
       expect(response.body).toHaveProperty('balance');
@@ -43,7 +43,7 @@ describe('E2E: Wallets API', () => {
       // Fund the wallet with unique payment reference
       const uniquePaymentRef = `payment-wallet-${Date.now()}-${Math.random()}`;
       await request(app)
-        .post('/transactions/fund')
+        .post('/api/v1/transactions/fund')
         .set('Idempotency-Key', `fund-wallet-${Date.now()}`)
         .send({
           walletId,
@@ -53,7 +53,7 @@ describe('E2E: Wallets API', () => {
         .expect(201);
 
       const response = await request(app)
-        .get(`/wallets/${userId}/balance`)
+        .get(`/api/v1/wallets/${userId}/balance`)
         .expect(200);
 
       expect(response.body.balance).toBe(10000);
@@ -62,7 +62,7 @@ describe('E2E: Wallets API', () => {
     it('should return 404 for non-existent user', async () => {
       const fakeUserId = '00000000-0000-0000-0000-000000000000';
       const response = await request(app)
-        .get(`/wallets/${fakeUserId}/balance`)
+        .get(`/api/v1/wallets/${fakeUserId}/balance`)
         .expect(404);
 
       expect(response.body).toHaveProperty('error');

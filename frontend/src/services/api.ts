@@ -28,7 +28,7 @@ export interface Transaction {
   id: string;
   wallet_id: string;
   amount: number;
-  direction: 'credit' | 'debit';
+  direction: "credit" | "debit";
   transaction_reference: string;
   transfer_id: string | null;
   external_payment_ref: string | null;
@@ -44,7 +44,7 @@ export interface Transfer {
   sender_wallet_id: string;
   receiver_wallet_id: string;
   amount: number;
-  status: 'pending' | 'completed' | 'failed';
+  status: "pending" | "completed" | "failed";
   created_at: string;
 }
 
@@ -67,7 +67,7 @@ export interface ApiError {
 }
 
 // API Client
-const API_BASE_URL = import.meta.env.PROD ? '' : 'http://localhost:3000';
+const API_BASE_URL = import.meta.env.PROD ? "" : "http://localhost:3000";
 
 async function request<T>(
   endpoint: string,
@@ -77,7 +77,7 @@ async function request<T>(
   const response = await fetch(url, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...options.headers,
     },
   });
@@ -86,7 +86,7 @@ async function request<T>(
 
   if (!response.ok) {
     const error = data as ApiError;
-    throw new Error(error.message || error.error || 'An error occurred');
+    throw new Error(error.message || error.error || "An error occurred");
   }
 
   return data as T;
@@ -102,8 +102,8 @@ export const api = {
    * Create a new user and wallet
    */
   async createUser(email: string, name: string): Promise<CreateUserResponse> {
-    return request<CreateUserResponse>('/users', {
-      method: 'POST',
+    return request<CreateUserResponse>("/api/v1/users", {
+      method: "POST",
       body: JSON.stringify({ email, name }),
     });
   },
@@ -112,14 +112,16 @@ export const api = {
    * Get wallet balance for a user by user ID
    */
   async getBalance(userId: string): Promise<BalanceResponse> {
-    return request<BalanceResponse>(`/wallets/${userId}/balance`);
+    return request<BalanceResponse>(`/api/v1/wallets/${userId}/balance`);
   },
 
   /**
    * Get wallet balance for a user by email
    */
   async getBalanceByEmail(email: string): Promise<BalanceResponse> {
-    return request<BalanceResponse>(`/wallets/balance/by-email/${encodeURIComponent(email)}`);
+    return request<BalanceResponse>(
+      `/api/v1/wallets/balance/by-email/${encodeURIComponent(email)}`
+    );
   },
 
   /**
@@ -131,10 +133,10 @@ export const api = {
     externalPaymentRef: string
   ): Promise<FundWalletResponse> {
     const idempotencyKey = generateIdempotencyKey();
-    return request<FundWalletResponse>('/transactions/fund', {
-      method: 'POST',
+    return request<FundWalletResponse>("/api/v1/transactions/fund", {
+      method: "POST",
       headers: {
-        'Idempotency-Key': idempotencyKey,
+        "Idempotency-Key": idempotencyKey,
       },
       body: JSON.stringify({
         walletId,
@@ -153,10 +155,10 @@ export const api = {
     amount: number
   ): Promise<TransferResponse> {
     const idempotencyKey = generateIdempotencyKey();
-    return request<TransferResponse>('/transactions/transfer', {
-      method: 'POST',
+    return request<TransferResponse>("/api/v1/transactions/transfer", {
+      method: "POST",
       headers: {
-        'Idempotency-Key': idempotencyKey,
+        "Idempotency-Key": idempotencyKey,
       },
       body: JSON.stringify({
         senderWalletId,
@@ -179,6 +181,6 @@ export const api = {
       limit: limit.toString(),
       offset: offset.toString(),
     });
-    return request<TransactionsResponse>(`/transactions?${params}`);
+    return request<TransactionsResponse>(`/api/v1/transactions?${params}`);
   },
 };

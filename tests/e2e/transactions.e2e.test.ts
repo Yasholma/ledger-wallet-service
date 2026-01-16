@@ -45,12 +45,12 @@ describe("E2E: Transactions API", () => {
     );
   });
 
-  describe("POST /transactions/fund", () => {
+  describe("POST /api/v1/transactions/fund", () => {
     it("should fund a wallet successfully", async () => {
       // Use unique payment reference to avoid conflicts
       const uniquePaymentRef = `payment-transactions-${Date.now()}-${Math.random()}`;
       const response = await request(app)
-        .post("/transactions/fund")
+        .post("/api/v1/transactions/fund")
         .set("Idempotency-Key", `fund-transactions-${Date.now()}`)
         .send({
           walletId: wallet1Id,
@@ -78,7 +78,7 @@ describe("E2E: Transactions API", () => {
       const uniquePaymentRef = `payment-duplicate-${Date.now()}-${Math.random()}`;
 
       const response1 = await request(app)
-        .post("/transactions/fund")
+        .post("/api/v1/transactions/fund")
         .set("Idempotency-Key", idempotencyKey)
         .send({
           walletId: wallet1Id,
@@ -88,7 +88,7 @@ describe("E2E: Transactions API", () => {
         .expect(201);
 
       const response2 = await request(app)
-        .post("/transactions/fund")
+        .post("/api/v1/transactions/fund")
         .set("Idempotency-Key", idempotencyKey)
         .send({
           walletId: wallet1Id,
@@ -113,7 +113,7 @@ describe("E2E: Transactions API", () => {
       const externalRef = `payment-unique-${Date.now()}-${Math.random()}`;
 
       await request(app)
-        .post("/transactions/fund")
+        .post("/api/v1/transactions/fund")
         .set("Idempotency-Key", `fund-2-${Date.now()}`)
         .send({
           walletId: wallet1Id,
@@ -124,7 +124,7 @@ describe("E2E: Transactions API", () => {
 
       // Try to fund again with same external payment ref (different idempotency key)
       await request(app)
-        .post("/transactions/fund")
+        .post("/api/v1/transactions/fund")
         .set("Idempotency-Key", `fund-3-${Date.now()}`)
         .send({
           walletId: wallet1Id,
@@ -140,7 +140,7 @@ describe("E2E: Transactions API", () => {
 
     it("should return 400 for invalid amount", async () => {
       const response = await request(app)
-        .post("/transactions/fund")
+        .post("/api/v1/transactions/fund")
         .set("Idempotency-Key", "fund-invalid")
         .send({
           walletId: wallet1Id,
@@ -153,11 +153,11 @@ describe("E2E: Transactions API", () => {
     });
   });
 
-  describe("POST /transactions/transfer", () => {
+  describe("POST /api/v1/transactions/transfer", () => {
     beforeEach(async () => {
       // Fund wallet1 before each transfer test
       await request(app)
-        .post("/transactions/fund")
+        .post("/api/v1/transactions/fund")
         .set("Idempotency-Key", `fund-setup-${Date.now()}`)
         .send({
           walletId: wallet1Id,
@@ -168,7 +168,7 @@ describe("E2E: Transactions API", () => {
 
     it("should transfer funds successfully", async () => {
       const response = await request(app)
-        .post("/transactions/transfer")
+        .post("/api/v1/transactions/transfer")
         .set("Idempotency-Key", "transfer-1")
         .send({
           senderWalletId: wallet1Id,
@@ -193,7 +193,7 @@ describe("E2E: Transactions API", () => {
 
     it("should return 400 for insufficient balance", async () => {
       const response = await request(app)
-        .post("/transactions/transfer")
+        .post("/api/v1/transactions/transfer")
         .set("Idempotency-Key", "transfer-insufficient")
         .send({
           senderWalletId: wallet1Id,
@@ -216,7 +216,7 @@ describe("E2E: Transactions API", () => {
       const idempotencyKey = "transfer-duplicate-1";
 
       const response1 = await request(app)
-        .post("/transactions/transfer")
+        .post("/api/v1/transactions/transfer")
         .set("Idempotency-Key", idempotencyKey)
         .send({
           senderWalletId: wallet1Id,
@@ -226,7 +226,7 @@ describe("E2E: Transactions API", () => {
         .expect(201);
 
       const response2 = await request(app)
-        .post("/transactions/transfer")
+        .post("/api/v1/transactions/transfer")
         .set("Idempotency-Key", idempotencyKey)
         .send({
           senderWalletId: wallet1Id,
@@ -247,7 +247,7 @@ describe("E2E: Transactions API", () => {
 
     it("should return 400 for zero amount", async () => {
       const response = await request(app)
-        .post("/transactions/transfer")
+        .post("/api/v1/transactions/transfer")
         .set("Idempotency-Key", "transfer-zero")
         .send({
           senderWalletId: wallet1Id,
@@ -259,10 +259,28 @@ describe("E2E: Transactions API", () => {
       expect(response.body).toHaveProperty("error");
     });
 
+    it("should return 400 when transferring from wallet to itself", async () => {
+      const response = await request(app)
+        .post("/api/v1/transactions/transfer")
+        .set("Idempotency-Key", "transfer-self")
+        .send({
+          senderWalletId: wallet1Id,
+          receiverWalletId: wallet1Id,
+          amount: 1000,
+        })
+        .expect(400);
+
+      expect(response.body).toHaveProperty("error");
+      expect(response.body.error).toBe("VALIDATION_ERROR");
+      expect(response.body.message).toContain(
+        "Cannot transfer funds from a wallet to itself"
+      );
+    });
+
     it("should return 404 for non-existent wallet", async () => {
       const fakeWalletId = "00000000-0000-0000-0000-000000000000";
       const response = await request(app)
-        .post("/transactions/transfer")
+        .post("/api/v1/transactions/transfer")
         .set("Idempotency-Key", "transfer-not-found")
         .send({
           senderWalletId: fakeWalletId,
@@ -276,11 +294,11 @@ describe("E2E: Transactions API", () => {
     });
   });
 
-  describe("GET /transactions", () => {
+  describe("GET /api/v1/transactions", () => {
     beforeEach(async () => {
       // Create some transactions
       await request(app)
-        .post("/transactions/fund")
+        .post("/api/v1/transactions/fund")
         .set("Idempotency-Key", "fund-query-1")
         .send({
           walletId: wallet1Id,
@@ -289,7 +307,7 @@ describe("E2E: Transactions API", () => {
         });
 
       await request(app)
-        .post("/transactions/fund")
+        .post("/api/v1/transactions/fund")
         .set("Idempotency-Key", "fund-query-2")
         .send({
           walletId: wallet1Id,
@@ -300,7 +318,7 @@ describe("E2E: Transactions API", () => {
 
     it("should return ledger entries for a wallet", async () => {
       const response = await request(app)
-        .get(`/transactions?walletId=${wallet1Id}`)
+        .get(`/api/v1/transactions?walletId=${wallet1Id}`)
         .expect(200);
 
       expect(response.body).toHaveProperty("transactions");
@@ -314,7 +332,7 @@ describe("E2E: Transactions API", () => {
 
     it("should support pagination", async () => {
       const response = await request(app)
-        .get(`/transactions?walletId=${wallet1Id}&limit=1&offset=0`)
+        .get(`/api/v1/transactions?walletId=${wallet1Id}&limit=1&offset=0`)
         .expect(200);
 
       expect(response.body.transactions.length).toBe(1);
@@ -325,14 +343,16 @@ describe("E2E: Transactions API", () => {
 
     it("should return empty array for wallet with no transactions", async () => {
       const response = await request(app)
-        .get(`/transactions?walletId=${wallet2Id}`)
+        .get(`/api/v1/transactions?walletId=${wallet2Id}`)
         .expect(200);
 
       expect(response.body.transactions).toEqual([]);
     });
 
     it("should return 400 for missing walletId", async () => {
-      const response = await request(app).get("/transactions").expect(400);
+      const response = await request(app)
+        .get("/api/v1/transactions")
+        .expect(400);
 
       expect(response.body).toHaveProperty("error");
     });

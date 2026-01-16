@@ -46,11 +46,11 @@ const swaggerDocument = YAML.load(swaggerDocumentPath);
 // @ts-expect-error - swagger-ui-express has type conflicts with express types
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-// API Routes (must come before static file serving)
-app.use("/users", usersRouter);
-app.use("/wallets", walletsRouter);
-app.use("/transactions", transactionsRouter);
-app.use("/health", healthRouter);
+// API Routes with versioning (must come before static file serving)
+app.use("/api/v1/users", usersRouter);
+app.use("/api/v1/wallets", walletsRouter);
+app.use("/api/v1/transactions", transactionsRouter);
+app.use("/api/v1/health", healthRouter);
 
 // Serve static files from dist/public in production
 if (process.env.NODE_ENV === "production") {
@@ -59,13 +59,7 @@ if (process.env.NODE_ENV === "production") {
 
   // Serve index.html for all non-API routes
   app.get("*", (req: Request, res: Response) => {
-    if (
-      req.path.startsWith("/users") ||
-      req.path.startsWith("/wallets") ||
-      req.path.startsWith("/transactions") ||
-      req.path.startsWith("/health") ||
-      req.path.startsWith("/api-docs")
-    ) {
+    if (req.path.startsWith("/api/v1") || req.path.startsWith("/api-docs")) {
       return res.status(404).json({ error: "Not found" });
     }
 
@@ -80,10 +74,10 @@ if (process.env.NODE_ENV !== "production") {
       service: "Ledger Wallet Service",
       version: "1.0.0",
       endpoints: {
-        users: "/users",
-        wallets: "/wallets",
-        transactions: "/transactions",
-        health: "/health",
+        users: "/api/v1/users",
+        wallets: "/api/v1/wallets",
+        transactions: "/api/v1/transactions",
+        health: "/api/v1/health",
         apiDocs: "/api-docs",
       },
       note: "Frontend UI available at http://localhost:5173 in development",
