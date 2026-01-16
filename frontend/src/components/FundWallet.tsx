@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '../services/api';
+import { api, UserWithWallet } from '../services/api';
 import './Form.css';
 
 interface FundWalletProps {
@@ -7,18 +7,49 @@ interface FundWalletProps {
 }
 
 export default function FundWallet({ walletId: initialWalletId = '' }: FundWalletProps) {
+  const [users, setUsers] = useState<UserWithWallet[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [walletId, setWalletId] = useState(initialWalletId);
   const [amount, setAmount] = useState('');
   const [externalPaymentRef, setExternalPaymentRef] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    if (initialWalletId) {
-      setWalletId(initialWalletId);
-    }
+    const fetchUsers = async () => {
+      try {
+        setLoadingUsers(true);
+        const response = await api.getUsers();
+        setUsers(response.users);
+        
+        // If initialWalletId is provided, find and select that user
+        if (initialWalletId) {
+          const user = response.users.find(u => u.wallet_id === initialWalletId);
+          if (user) {
+            setSelectedUserId(user.id);
+            setWalletId(user.wallet_id);
+          }
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch users');
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+
+    fetchUsers();
   }, [initialWalletId]);
+
+  const handleUserChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const userId = e.target.value;
+    const user = users.find(u => u.id === userId);
+    if (user) {
+      setSelectedUserId(userId);
+      setWalletId(user.wallet_id);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,15 +92,21 @@ export default function FundWallet({ walletId: initialWalletId = '' }: FundWalle
 
       <form onSubmit={handleSubmit} className="form">
         <div className="form-group">
-          <label htmlFor="walletId">Wallet ID</label>
-          <input
-            id="walletId"
-            type="text"
-            value={walletId}
-            onChange={(e) => setWalletId(e.target.value)}
+          <label htmlFor="userSelect">Select User</label>
+          <select
+            id="userSelect"
+            value={selectedUserId}
+            onChange={handleUserChange}
+            disabled={loadingUsers}
             required
-            placeholder="Enter wallet ID"
-          />
+          >
+            <option value="">-- Select a user --</option>
+            {users.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.name} ({user.email})
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="form-group">
@@ -98,6 +135,7 @@ export default function FundWallet({ walletId: initialWalletId = '' }: FundWalle
           />
         </div>
 
+        {loadingUsers && <div className="message">Loading users...</div>}
         {error && <div className="message error">{error}</div>}
         {success && <div className="message success">{success}</div>}
 

@@ -61,6 +61,18 @@ export interface TransactionsResponse {
   };
 }
 
+export interface UserWithWallet {
+  id: string;
+  email: string;
+  name: string;
+  wallet_id: string;
+  created_at: string;
+}
+
+export interface UsersResponse {
+  users: UserWithWallet[];
+}
+
 export interface ApiError {
   error: string;
   message: string;
@@ -98,6 +110,13 @@ function generateIdempotencyKey(): string {
 }
 
 export const api = {
+  /**
+   * Get all users with their wallet IDs
+   */
+  async getUsers(): Promise<UsersResponse> {
+    return request<UsersResponse>("/api/v1/users");
+  },
+
   /**
    * Create a new user and wallet
    */

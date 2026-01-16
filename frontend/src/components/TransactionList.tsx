@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { api, Transaction } from '../services/api';
+import { api, Transaction, UserWithWallet } from '../services/api';
+import { formatCurrency } from '../utils/format';
 import './Form.css';
 
 interface TransactionListProps {
@@ -7,13 +8,51 @@ interface TransactionListProps {
 }
 
 export default function TransactionList({ walletId: initialWalletId }: TransactionListProps) {
+  const [users, setUsers] = useState<UserWithWallet[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [walletId, setWalletId] = useState(initialWalletId || '');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [limit, setLimit] = useState(50);
   const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setLoadingUsers(true);
+        const response = await api.getUsers();
+        setUsers(response.users);
+        
+        // If initialWalletId is provided, find and select that user
+        if (initialWalletId) {
+          const user = response.users.find(u => u.wallet_id === initialWalletId);
+          if (user) {
+            setSelectedUserId(user.id);
+            setWalletId(user.wallet_id);
+          }
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch users');
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+
+    fetchUsers();
+  }, [initialWalletId]);
+
+  const handleUserChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const userId = e.target.value;
+    const user = users.find(u => u.id === userId);
+    if (user) {
+      setSelectedUserId(userId);
+      setWalletId(user.wallet_id);
+      setOffset(0); // Reset to first page when user changes
+    }
+  };
 
   const fetchTransactions = useCallback(async () => {
     if (!walletId.trim()) return;
@@ -39,16 +78,6 @@ export default function TransactionList({ walletId: initialWalletId }: Transacti
     }
   }, [walletId, fetchTransactions]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setOffset(0);
-    fetchTransactions();
-  };
-
-  const formatAmount = (amount: number) => {
-    return (amount / 100).toFixed(2);
-  };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
   };
@@ -60,25 +89,29 @@ export default function TransactionList({ walletId: initialWalletId }: Transacti
         View transaction history for a wallet.
       </p>
 
-      <form onSubmit={handleSubmit} className="form">
+      <form className="form">
         <div className="form-group">
-          <label htmlFor="walletId">Wallet ID</label>
-          <input
-            id="walletId"
-            type="text"
-            value={walletId}
-            onChange={(e) => setWalletId(e.target.value)}
+          <label htmlFor="userSelect">Select User</label>
+          <select
+            id="userSelect"
+            value={selectedUserId}
+            onChange={handleUserChange}
+            disabled={loadingUsers}
             required
-            placeholder="Enter wallet ID"
-          />
+          >
+            <option value="">-- Select a user --</option>
+            {users.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.name} ({user.email})
+              </option>
+            ))}
+          </select>
         </div>
-
-        <button type="submit" className="button button-primary" disabled={loading}>
-          {loading ? 'Loading...' : 'Load Transactions'}
-        </button>
       </form>
 
+      {loadingUsers && <div className="message">Loading users...</div>}
       {error && <div className="message error">{error}</div>}
+      {loading && selectedUserId && <div className="message">Loading transactions...</div>}
 
       {transactions.length > 0 && (
         <div className="transactions-container">
@@ -123,7 +156,7 @@ export default function TransactionList({ walletId: initialWalletId }: Transacti
                   <tr key={tx.id}>
                     <td className="tx-id">{tx.id.slice(0, 8)}...</td>
                     <td className={`tx-amount ${tx.direction}`}>
-                      {tx.direction === 'credit' ? '+' : '-'}${formatAmount(tx.amount)}
+                      {tx.direction === 'credit' ? '+' : '-'}{formatCurrency(tx.amount)}
                     </td>
                     <td>
                       <span className={`badge ${tx.direction}`}>

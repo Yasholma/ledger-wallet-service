@@ -1,96 +1,78 @@
 import { useState, useEffect } from 'react';
-import { api } from '../services/api';
+import { api, UserWithWallet } from '../services/api';
+import { formatCurrency } from '../utils/format';
 import './Form.css';
-
-type SearchType = 'email' | 'userId';
 
 interface BalanceProps {
   userId?: string;
   email?: string;
-  searchType?: SearchType;
-  onSearchTypeChange?: (type: SearchType) => void;
-  onEmailChange?: (email: string) => void;
-  onUserIdChange?: (userId: string) => void;
   onBalanceFound?: (walletId: string, userId: string, email?: string) => void;
 }
 
 export default function Balance({
   userId: initialUserId = '',
   email: initialEmail = '',
-  searchType: initialSearchType = 'email',
-  onSearchTypeChange,
-  onEmailChange,
-  onUserIdChange,
   onBalanceFound,
 }: BalanceProps) {
-  const [searchType, setSearchType] = useState<SearchType>(initialSearchType);
-  const [email, setEmail] = useState(initialEmail);
-  const [userId, setUserId] = useState(initialUserId);
+  const [users, setUsers] = useState<UserWithWallet[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string>(initialUserId || '');
   const [balance, setBalance] = useState<number | null>(null);
   const [walletId, setWalletId] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserWithWallet | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setSearchType(initialSearchType);
-    setEmail(initialEmail);
-    setUserId(initialUserId);
-  }, [initialSearchType, initialEmail, initialUserId]);
+    const fetchUsers = async () => {
+      try {
+        setLoadingUsers(true);
+        const response = await api.getUsers();
+        setUsers(response.users);
+        
+        // If initialUserId is provided, select that user
+        if (initialUserId) {
+          const user = response.users.find(u => u.id === initialUserId);
+          if (user) {
+            setSelectedUserId(user.id);
+            setSelectedUser(user);
+          }
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch users');
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
 
-  const handleSearchTypeChange = (newSearchType: SearchType) => {
-    setSearchType(newSearchType);
-    if (onSearchTypeChange) {
-      onSearchTypeChange(newSearchType);
+    fetchUsers();
+  }, [initialUserId]);
+
+  useEffect(() => {
+    // Auto-fetch balance when user is selected
+    if (selectedUserId && users.length > 0) {
+      fetchBalance(selectedUserId);
     }
-    setBalance(null);
-    setWalletId(null);
-    setUserEmail(null);
-    setError(null);
-  };
+  }, [selectedUserId, users]);
 
-  const handleEmailChange = (newEmail: string) => {
-    setEmail(newEmail);
-    if (onEmailChange) {
-      onEmailChange(newEmail);
-    }
-  };
-
-  const handleUserIdChange = (newUserId: string) => {
-    setUserId(newUserId);
-    if (onUserIdChange) {
-      onUserIdChange(newUserId);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (searchType === 'email' && !email.trim()) return;
-    if (searchType === 'userId' && !userId.trim()) return;
+  const fetchBalance = async (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
 
     setLoading(true);
     setError(null);
     setBalance(null);
     setWalletId(null);
-    setUserEmail(null);
+    setSelectedUser(user);
 
     try {
-      const response = searchType === 'email'
-        ? await api.getBalanceByEmail(email.trim())
-        : await api.getBalance(userId.trim());
+      const response = await api.getBalance(userId);
       
       setBalance(response.balance);
       setWalletId(response.wallet_id);
-      const foundEmail = response.email || null;
-      const foundUserId = response.user_id;
-      
-      if (foundEmail) {
-        setUserEmail(foundEmail);
-      }
 
       if (onBalanceFound) {
-        onBalanceFound(response.wallet_id, foundUserId, foundEmail || undefined);
+        onBalanceFound(response.wallet_id, response.user_id, user.email);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch balance');
@@ -99,74 +81,52 @@ export default function Balance({
     }
   };
 
-  const formatAmount = (amount: number) => {
-    return (amount / 100).toFixed(2);
+  const handleUserChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const userId = e.target.value;
+    setSelectedUserId(userId);
   };
 
   return (
     <div className="card">
       <h2>Wallet Balance</h2>
       <p className="card-description">
-        Check the balance for a user's wallet by email or user ID.
+        Select a user to view their wallet balance.
       </p>
 
-      <form onSubmit={handleSubmit} className="form">
+      <form className="form">
         <div className="form-group">
-          <label htmlFor="searchType">Search By</label>
+          <label htmlFor="userSelect">Select User</label>
           <select
-            id="searchType"
-            value={searchType}
-            onChange={(e) => {
-              handleSearchTypeChange(e.target.value as SearchType);
-            }}
+            id="userSelect"
+            value={selectedUserId}
+            onChange={handleUserChange}
+            disabled={loadingUsers}
+            required
           >
-            <option value="email">Email</option>
-            <option value="userId">User ID</option>
+            <option value="">-- Select a user --</option>
+            {users.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.name} ({user.email})
+              </option>
+            ))}
           </select>
         </div>
-
-        {searchType === 'email' ? (
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => handleEmailChange(e.target.value)}
-              required
-              placeholder="Enter user email"
-            />
-          </div>
-        ) : (
-          <div className="form-group">
-            <label htmlFor="userId">User ID</label>
-            <input
-              id="userId"
-              type="text"
-              value={userId}
-              onChange={(e) => handleUserIdChange(e.target.value)}
-              required
-              placeholder="Enter user ID"
-            />
-          </div>
-        )}
-
-        <button type="submit" className="button button-primary" disabled={loading}>
-          {loading ? 'Loading...' : 'Get Balance'}
-        </button>
       </form>
 
+      {loadingUsers && <div className="message">Loading users...</div>}
       {error && <div className="message error">{error}</div>}
+      {loading && selectedUserId && <div className="message">Loading balance...</div>}
 
-      {balance !== null && walletId && (
+      {balance !== null && walletId && selectedUser && (
         <div className="balance-result">
           <div className="balance-card">
             <div className="balance-label">Balance</div>
-            <div className="balance-amount">${formatAmount(balance)}</div>
+            <div className="balance-amount">{formatCurrency(balance)}</div>
             <div className="balance-details">
+              <div>User: {selectedUser.name}</div>
+              <div>Email: {selectedUser.email}</div>
               <div>Wallet ID: {walletId}</div>
-              {userEmail && <div>Email: {userEmail}</div>}
-              <div>User ID: {userId || 'N/A'}</div>
+              <div>User ID: {selectedUser.id}</div>
             </div>
           </div>
         </div>

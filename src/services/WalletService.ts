@@ -124,6 +124,38 @@ export class WalletService {
     return this.mapRowToWallet(result.rows[0]);
   }
 
+  async getAllUsersWithWallets(): Promise<
+    Array<{ user: User; wallet: Wallet }>
+  > {
+    const result = await pool.query(
+      `SELECT 
+        u.id as user_id,
+        u.email,
+        u.name,
+        u.created_at as user_created_at,
+        w.id as wallet_id,
+        w.user_id as wallet_user_id,
+        w.created_at as wallet_created_at
+      FROM users u
+      INNER JOIN wallets w ON u.id = w.user_id
+      ORDER BY u.created_at DESC`
+    );
+
+    return result.rows.map((row) => ({
+      user: {
+        id: row.user_id,
+        email: row.email,
+        name: row.name,
+        created_at: row.user_created_at,
+      },
+      wallet: {
+        id: row.wallet_id,
+        user_id: row.wallet_user_id,
+        created_at: row.wallet_created_at,
+      },
+    }));
+  }
+
   private mapRowToUser(row: Record<string, any>): User {
     return {
       id: row.id,

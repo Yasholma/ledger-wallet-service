@@ -8,13 +8,11 @@ import TransactionList from './components/TransactionList';
 import { sessionStorage } from './utils/sessionStorage';
 
 type Tab = 'user' | 'balance' | 'fund' | 'transfer' | 'transactions';
-type SearchType = 'email' | 'userId';
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('user');
   const [userId, setUserId] = useState<string>('');
   const [walletId, setWalletId] = useState<string>('');
-  const [searchType, setSearchType] = useState<SearchType>('email');
   const [email, setEmail] = useState<string>('');
 
   useEffect(() => {
@@ -47,10 +45,6 @@ function App() {
         <Balance
           userId={userId}
           email={email}
-          searchType={searchType}
-          onSearchTypeChange={setSearchType}
-          onEmailChange={setEmail}
-          onUserIdChange={setUserId}
           onBalanceFound={handleBalanceFound}
         />
       )}

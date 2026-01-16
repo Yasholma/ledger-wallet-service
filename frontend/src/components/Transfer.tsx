@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '../services/api';
+import { api, UserWithWallet } from '../services/api';
 import './Form.css';
 
 interface TransferProps {
@@ -7,18 +7,59 @@ interface TransferProps {
 }
 
 export default function Transfer({ senderWalletId: initialSenderWalletId = '' }: TransferProps) {
+  const [users, setUsers] = useState<UserWithWallet[]>([]);
+  const [senderUserId, setSenderUserId] = useState<string>('');
+  const [receiverUserId, setReceiverUserId] = useState<string>('');
   const [senderWalletId, setSenderWalletId] = useState(initialSenderWalletId);
   const [receiverWalletId, setReceiverWalletId] = useState('');
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    if (initialSenderWalletId) {
-      setSenderWalletId(initialSenderWalletId);
-    }
+    const fetchUsers = async () => {
+      try {
+        setLoadingUsers(true);
+        const response = await api.getUsers();
+        setUsers(response.users);
+        
+        // If initialSenderWalletId is provided, find and select that user
+        if (initialSenderWalletId) {
+          const user = response.users.find(u => u.wallet_id === initialSenderWalletId);
+          if (user) {
+            setSenderUserId(user.id);
+            setSenderWalletId(user.wallet_id);
+          }
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch users');
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+
+    fetchUsers();
   }, [initialSenderWalletId]);
+
+  const handleSenderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const userId = e.target.value;
+    const user = users.find(u => u.id === userId);
+    if (user) {
+      setSenderUserId(userId);
+      setSenderWalletId(user.wallet_id);
+    }
+  };
+
+  const handleReceiverChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const userId = e.target.value;
+    const user = users.find(u => u.id === userId);
+    if (user) {
+      setReceiverUserId(userId);
+      setReceiverWalletId(user.wallet_id);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,6 +68,11 @@ export default function Transfer({ senderWalletId: initialSenderWalletId = '' }:
     setSuccess(null);
 
     try {
+      // Validate sender and receiver are different
+      if (senderWalletId === receiverWalletId) {
+        throw new Error('Sender and receiver must be different');
+      }
+
       // Convert amount to cents (integer)
       const amountInCents = Math.round(parseFloat(amount) * 100);
       
@@ -60,27 +106,41 @@ export default function Transfer({ senderWalletId: initialSenderWalletId = '' }:
 
       <form onSubmit={handleSubmit} className="form">
         <div className="form-group">
-          <label htmlFor="senderWalletId">Sender Wallet ID</label>
-          <input
-            id="senderWalletId"
-            type="text"
-            value={senderWalletId}
-            onChange={(e) => setSenderWalletId(e.target.value)}
+          <label htmlFor="senderSelect">Select Sender</label>
+          <select
+            id="senderSelect"
+            value={senderUserId}
+            onChange={handleSenderChange}
+            disabled={loadingUsers}
             required
-            placeholder="Enter sender wallet ID"
-          />
+          >
+            <option value="">-- Select sender --</option>
+            {users.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.name} ({user.email})
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="form-group">
-          <label htmlFor="receiverWalletId">Receiver Wallet ID</label>
-          <input
-            id="receiverWalletId"
-            type="text"
-            value={receiverWalletId}
-            onChange={(e) => setReceiverWalletId(e.target.value)}
+          <label htmlFor="receiverSelect">Select Receiver</label>
+          <select
+            id="receiverSelect"
+            value={receiverUserId}
+            onChange={handleReceiverChange}
+            disabled={loadingUsers}
             required
-            placeholder="Enter receiver wallet ID"
-          />
+          >
+            <option value="">-- Select receiver --</option>
+            {users
+              .filter((user) => user.id !== senderUserId)
+              .map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.name} ({user.email})
+                </option>
+              ))}
+          </select>
         </div>
 
         <div className="form-group">
@@ -97,6 +157,7 @@ export default function Transfer({ senderWalletId: initialSenderWalletId = '' }:
           />
         </div>
 
+        {loadingUsers && <div className="message">Loading users...</div>}
         {error && <div className="message error">{error}</div>}
         {success && <div className="message success">{success}</div>}
 

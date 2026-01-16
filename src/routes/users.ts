@@ -14,6 +14,35 @@ const createUserSchema = {
 };
 
 /**
+ * GET /users
+ * Get all users with their wallet IDs
+ */
+router.get("/", async (req: Request, res: Response, next: NextFunction) => {
+  const correlationId = createRequestId();
+  logger.info("Getting all users", { correlationId });
+
+  try {
+    const users = await walletService.getAllUsersWithWallets();
+
+    res.json({
+      users: users.map((u) => ({
+        id: u.user.id,
+        email: u.user.email,
+        name: u.user.name,
+        wallet_id: u.wallet.id,
+        created_at: u.user.created_at,
+      })),
+    });
+  } catch (error) {
+    logger.error("Failed to get users", {
+      correlationId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    next(error);
+  }
+});
+
+/**
  * POST /users
  * Create a new user and associated wallet
  */

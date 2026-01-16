@@ -28,6 +28,44 @@ tags:
 
 paths:
   /users:
+    get:
+      tags:
+        - Users
+      summary: Get all users
+      description: Returns a list of all users with their wallet IDs
+      responses:
+        "200":
+          description: List of users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                          example: 123e4567-e89b-12d3-a456-426614174000
+                        email:
+                          type: string
+                          format: email
+                          example: user@example.com
+                        name:
+                          type: string
+                          example: John Doe
+                        wallet_id:
+                          type: string
+                          format: uuid
+                          example: 123e4567-e89b-12d3-a456-426614174001
+                        created_at:
+                          type: string
+                          format: date-time
+        "500":
+          $ref: "#/components/responses/InternalServerError"
     post:
       tags:
         - Users
