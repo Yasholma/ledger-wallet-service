@@ -1,0 +1,294 @@
+.card {
+  background-color: var(--color-bg);
+  border-radius: var(--radius);
+  padding: var(--spacing-xl);
+  box-shadow: var(--shadow-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.card h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: var(--spacing-sm);
+}
+
+.card-description {
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-lg);
+  font-size: 0.875rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.form-group label {
+  font-weight: 500;
+  color: var(--color-text);
+  font-size: 0.875rem;
+}
+
+.form-group input,
+.form-group select {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius);
+  font-size: 1rem;
+  background-color: var(--color-input-bg);
+  color: var(--color-text);
+  transition: border-color 0.2s;
+  font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--color-input-focus);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.form-group select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--spacing-md) center;
+  padding-right: calc(var(--spacing-md) + 20px);
+}
+
+.button {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border: none;
+  border-radius: var(--radius);
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  align-self: flex-start;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.button-primary {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.button-primary:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+}
+
+.button-secondary {
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+.button-secondary:hover:not(:disabled) {
+  background-color: var(--color-bg);
+  border-color: var(--color-primary);
+}
+
+.message {
+  padding: var(--spacing-md);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+}
+
+.message.error {
+  background-color: #fef2f2;
+  color: var(--color-error);
+  border: 1px solid #fecaca;
+}
+
+.message.success {
+  background-color: #f0fdf4;
+  color: var(--color-success);
+  border: 1px solid #bbf7d0;
+}
+
+.message.info {
+  background-color: #eff6ff;
+  color: var(--color-primary);
+  border: 1px solid #bfdbfe;
+  text-align: center;
+  padding: var(--spacing-lg);
+}
+
+.balance-result {
+  margin-top: var(--spacing-lg);
+}
+
+.balance-card {
+  background: linear-gradient(135deg, var(--color-primary) 0%, #1d4ed8 100%);
+  color: white;
+  padding: var(--spacing-xl);
+  border-radius: var(--radius);
+  text-align: center;
+}
+
+.balance-label {
+  font-size: 0.875rem;
+  opacity: 0.9;
+  margin-bottom: var(--spacing-sm);
+}
+
+.balance-amount {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: var(--spacing-md);
+}
+
+.balance-details {
+  font-size: 0.875rem;
+  opacity: 0.9;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.transactions-container {
+  margin-top: var(--spacing-lg);
+}
+
+.transactions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+}
+
+.transactions-header h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.pagination-info {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.transactions-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--color-bg);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.transactions-table thead {
+  background-color: var(--color-bg-secondary);
+}
+
+.transactions-table th {
+  padding: var(--spacing-md);
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--color-text);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.transactions-table td {
+  padding: var(--spacing-md);
+  border-top: 1px solid var(--color-border);
+  font-size: 0.875rem;
+  color: var(--color-text);
+}
+
+.transactions-table tbody tr:hover {
+  background-color: var(--color-bg-secondary);
+}
+
+.tx-id {
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.tx-amount {
+  font-weight: 600;
+}
+
+.tx-amount.credit {
+  color: var(--color-success);
+}
+
+.tx-amount.debit {
+  color: var(--color-error);
+}
+
+.badge {
+  display: inline-block;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: calc(var(--radius) / 2);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge.credit {
+  background-color: #d1fae5;
+  color: var(--color-success);
+}
+
+.badge.debit {
+  background-color: #fee2e2;
+  color: var(--color-error);
+}
+
+.tx-ref {
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.tx-date {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 768px) {
+  .card {
+    padding: var(--spacing-md);
+  }
+
+  .transactions-table {
+    font-size: 0.75rem;
+  }
+
+  .transactions-table th,
+  .transactions-table td {
+    padding: var(--spacing-sm);
+  }
+
+  .balance-amount {
+    font-size: 2rem;
+  }
+}
