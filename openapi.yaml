@@ -1,0 +1,504 @@
+openapi: 3.0.3
+info:
+  title: Ledger Wallet Service API
+  description: |
+    A fintech-style ledger service for managing user balances and transfers.
+    All balances are derived from immutable ledger entries.
+
+    ## Idempotency
+    All write operations (funding and transfers) require an `Idempotency-Key` header.
+    Replaying the same request with the same key will return the cached response.
+  version: 1.0.0
+  contact:
+    name: API Support
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+
+tags:
+  - name: Users
+    description: User management
+  - name: Wallets
+    description: Wallet balance queries
+  - name: Transactions
+    description: Funding and transfer operations
+  - name: Health
+    description: Health check
+
+paths:
+  /users:
+    post:
+      tags:
+        - Users
+      summary: Create a new user
+      description: Creates a new user account and associated wallet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - name
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                name:
+                  type: string
+                  example: John Doe
+      responses:
+        "201":
+          description: User and wallet created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+                  wallet:
+                    $ref: "#/components/schemas/Wallet"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: User with this email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: DUPLICATE_EMAIL
+                message: User with email user@example.com already exists
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /wallets/{userId}/balance:
+    get:
+      tags:
+        - Wallets
+      summary: Get wallet balance
+      description: Returns the current balance for a user's wallet
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+      responses:
+        "200":
+          description: Balance retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  wallet_id:
+                    type: string
+                    format: uuid
+                  user_id:
+                    type: string
+                    format: uuid
+                  balance:
+                    type: integer
+                    description: Balance in smallest currency unit
+                    example: 10000
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /wallets/balance/by-email/{email}:
+    get:
+      tags:
+        - Wallets
+      summary: Get wallet balance by email
+      description: Returns the current balance for a user's wallet by email address
+      parameters:
+        - name: email
+          in: path
+          required: true
+          schema:
+            type: string
+            format: email
+          example: user@example.com
+      responses:
+        "200":
+          description: Balance retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  wallet_id:
+                    type: string
+                    format: uuid
+                  user_id:
+                    type: string
+                    format: uuid
+                  email:
+                    type: string
+                    format: email
+                  balance:
+                    type: integer
+                    description: Balance in smallest currency unit
+                    example: 10000
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /transactions/fund:
+    post:
+      tags:
+        - Transactions
+      summary: Fund a wallet
+      description: |
+        Funds a wallet via external payment reference.
+        Requires Idempotency-Key header.
+        Duplicate external payment references will return the existing transaction.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Unique key for idempotent request handling
+          example: fund-12345-abcde
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - walletId
+                - amount
+                - externalPaymentRef
+              properties:
+                walletId:
+                  type: string
+                  format: uuid
+                  example: 123e4567-e89b-12d3-a456-426614174000
+                amount:
+                  type: integer
+                  minimum: 1
+                  description: Amount in smallest currency unit
+                  example: 10000
+                externalPaymentRef:
+                  type: string
+                  minLength: 1
+                  description: External payment reference (must be unique)
+                  example: payment_12345
+      responses:
+        "201":
+          description: Wallet funded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transaction:
+                    $ref: "#/components/schemas/LedgerEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Idempotency key conflict or duplicate payment reference
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /transactions/transfer:
+    post:
+      tags:
+        - Transactions
+      summary: Transfer funds between wallets
+      description: |
+        Transfers funds from sender wallet to receiver wallet atomically.
+        Requires Idempotency-Key header.
+        Validates sufficient balance before processing.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Unique key for idempotent request handling
+          example: transfer-12345-abcde
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - senderWalletId
+                - receiverWalletId
+                - amount
+              properties:
+                senderWalletId:
+                  type: string
+                  format: uuid
+                  example: 123e4567-e89b-12d3-a456-426614174000
+                receiverWalletId:
+                  type: string
+                  format: uuid
+                  example: 123e4567-e89b-12d3-a456-426614174001
+                amount:
+                  type: integer
+                  minimum: 1
+                  description: Amount in smallest currency unit
+                  example: 5000
+      responses:
+        "201":
+          description: Transfer completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transfer:
+                    $ref: "#/components/schemas/Transfer"
+        "400":
+          description: Validation error or insufficient balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Idempotency key conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /transactions:
+    get:
+      tags:
+        - Transactions
+      summary: Get transaction history
+      description: Returns paginated transaction history for a wallet
+      parameters:
+        - name: walletId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Number of results to return
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Pagination offset
+      responses:
+        "200":
+          description: Transactions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/LedgerEntry"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Returns service health status and database connectivity
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  timestamp:
+                    type: string
+                    format: date-time
+                  database:
+                    type: string
+                    example: connected
+        "503":
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: unhealthy
+                  timestamp:
+                    type: string
+                    format: date-time
+                  database:
+                    type: string
+                    example: disconnected
+                  error:
+                    type: string
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    Wallet:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    LedgerEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        wallet_id:
+          type: string
+          format: uuid
+        amount:
+          type: integer
+        direction:
+          type: string
+          enum:
+            - credit
+            - debit
+        transaction_reference:
+          type: string
+        transfer_id:
+          type: string
+          format: uuid
+          nullable: true
+        external_payment_ref:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    Transfer:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sender_wallet_id:
+          type: string
+          format: uuid
+        receiver_wallet_id:
+          type: string
+          format: uuid
+        amount:
+          type: integer
+        status:
+          type: string
+          enum:
+            - pending
+            - completed
+            - failed
+        created_at:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        limit:
+          type: integer
+        offset:
+          type: integer
+        count:
+          type: integer
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          example: "Validation failed: amount must be a positive integer, senderWalletId must be a valid UUID, receiverWalletId must be a valid UUID"
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
