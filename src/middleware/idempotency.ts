@@ -1,7 +1,8 @@
-import { Request, Response, NextFunction } from 'express';
-import { idempotencyService } from '../services/IdempotencyService';
-import { IdempotencyKeyConflictError } from '../utils/errors';
-import { logger } from '../utils/logger';
+import { Request, Response, NextFunction } from "express";
+import { idempotencyService } from "../services/IdempotencyService";
+import { IdempotencyKeyConflictError, ValidationError } from "../utils/errors";
+import { idempotencyKeySchema } from "./validation";
+import { logger } from "../utils/logger";
 
 /**
  * Idempotency middleware
@@ -13,10 +14,21 @@ export function idempotencyMiddleware(
   res: Response,
   next: NextFunction
 ) {
-  const idempotencyKey = req.headers['idempotency-key'] as string;
+  const idempotencyKey = req.headers["idempotency-key"] as string | undefined;
 
-  if (!idempotencyKey) {
+  // If idempotency key header is not provided at all, skip validation
+  if (idempotencyKey === undefined) {
     return next();
+  }
+
+  const validationResult = idempotencyKeySchema.safeParse(idempotencyKey);
+  if (!validationResult.success) {
+    return res.status(400).json({
+      error: "VALIDATION_ERROR",
+      message: `Invalid idempotency key: ${validationResult.error.errors
+        .map((e) => e.message)
+        .join(", ")}`,
+    });
   }
 
   // Hash the request body for comparison
@@ -27,7 +39,7 @@ export function idempotencyMiddleware(
     .checkAndGetResponse(idempotencyKey, requestHash)
     .then((cachedResponse) => {
       if (cachedResponse) {
-        logger.info('Returning cached idempotent response', {
+        logger.info("Returning cached idempotent response", {
           idempotencyKey,
           path: req.path,
         });
@@ -54,7 +66,7 @@ export function idempotencyMiddleware(
         idempotencyService
           .storeKey(idempotencyKey, requestHash, responseStatus, responseBody)
           .catch((error) => {
-            logger.error('Failed to store idempotency key', {
+            logger.error("Failed to store idempotency key", {
               error: error instanceof Error ? error.message : String(error),
               idempotencyKey,
             });
@@ -69,12 +81,12 @@ export function idempotencyMiddleware(
     .catch((error) => {
       if (error instanceof IdempotencyKeyConflictError) {
         return res.status(409).json({
-          error: 'IDEMPOTENCY_KEY_CONFLICT',
-          message: 'Idempotency key exists but request does not match',
+          error: "IDEMPOTENCY_KEY_CONFLICT",
+          message: "Idempotency key exists but request does not match",
         });
       }
 
-      logger.error('Idempotency middleware error', {
+      logger.error("Idempotency middleware error", {
         error: error instanceof Error ? error.message : String(error),
         idempotencyKey,
       });

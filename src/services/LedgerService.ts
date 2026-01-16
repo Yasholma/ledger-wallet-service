@@ -22,8 +22,12 @@ export class LedgerService {
       [walletId]
     );
 
+    if (!result.rows[0] || result.rows[0].balance === null) {
+      return 0;
+    }
+
     const balance = parseInt(result.rows[0].balance, 10);
-    return balance;
+    return isNaN(balance) ? 0 : balance;
   }
 
   async createEntry(input: CreateLedgerEntryInput): Promise<LedgerEntry> {

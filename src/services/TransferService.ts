@@ -47,7 +47,18 @@ export class TransferService {
         [input.sender_wallet_id]
       );
 
+      if (!balanceResult.rows[0] || balanceResult.rows[0].balance === null) {
+        throw new InsufficientBalanceError(
+          `Insufficient balance. Available: $0.00, Required: $${(input.amount / 100).toFixed(2)}`
+        );
+      }
+
       const balance = parseInt(balanceResult.rows[0].balance, 10);
+      if (isNaN(balance)) {
+        throw new InsufficientBalanceError(
+          `Insufficient balance. Available: $0.00, Required: $${(input.amount / 100).toFixed(2)}`
+        );
+      }
 
       if (balance < input.amount) {
         const availableUSD = (balance / 100).toFixed(2);

@@ -43,13 +43,47 @@ export const uuidSchema = z.string().uuid();
 /**
  * Validate positive integer (for amounts)
  * Coerces string numbers to numbers for JSON compatibility
+ * Maximum amount: 1,000,000,000,000 (10 billion dollars in cents)
  */
 export const positiveIntegerSchema = z.coerce
   .number()
   .int("Amount must be an integer")
-  .positive("Amount must be a positive integer");
+  .positive("Amount must be a positive integer")
+  .max(1_000_000_000_000, "Amount exceeds maximum allowed value");
 
 /**
  * Validate non-empty string
  */
 export const nonEmptyStringSchema = z.string().min(1, "String cannot be empty");
+
+/**
+ * Validate email with length constraint
+ */
+export const emailSchema = z
+  .string()
+  .email("Invalid email format")
+  .max(255, "Email must not exceed 255 characters");
+
+/**
+ * Validate name with length constraint
+ */
+export const nameSchema = z
+  .string()
+  .min(1, "Name cannot be empty")
+  .max(255, "Name must not exceed 255 characters");
+
+/**
+ * Validate external payment reference with length constraint
+ */
+export const externalPaymentRefSchema = z
+  .string()
+  .min(1, "External payment reference cannot be empty")
+  .max(255, "External payment reference must not exceed 255 characters");
+
+/**
+ * Validate idempotency key with length constraint
+ */
+export const idempotencyKeySchema = z
+  .string()
+  .min(1, "Idempotency key cannot be empty")
+  .max(255, "Idempotency key must not exceed 255 characters");

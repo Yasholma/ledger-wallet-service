@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { walletService } from "../services/WalletService";
-import { validate, uuidSchema } from "../middleware/validation";
+import { validate, uuidSchema, emailSchema } from "../middleware/validation";
 import { z } from "zod";
 import { logger, createRequestId } from "../utils/logger";
 
@@ -14,7 +14,7 @@ const getBalanceSchema = {
 
 const getBalanceByEmailSchema = {
   params: z.object({
-    email: z.string().email(),
+    email: emailSchema,
   }),
 };
 

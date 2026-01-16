@@ -62,6 +62,48 @@ describe("LedgerService", () => {
 
       expect(balance).toBe(-5000);
     });
+
+    it("should return 0 when result rows are empty", async () => {
+      mockPool.query.mockResolvedValueOnce({
+        rows: [],
+        rowCount: 0,
+        command: "SELECT",
+        oid: 0,
+        fields: [],
+      });
+
+      const balance = await ledgerService.getBalance("wallet-123");
+
+      expect(balance).toBe(0);
+    });
+
+    it("should return 0 when balance is null", async () => {
+      mockPool.query.mockResolvedValueOnce({
+        rows: [{ balance: null }],
+        rowCount: 1,
+        command: "SELECT",
+        oid: 0,
+        fields: [],
+      });
+
+      const balance = await ledgerService.getBalance("wallet-123");
+
+      expect(balance).toBe(0);
+    });
+
+    it("should return 0 when balance is undefined", async () => {
+      mockPool.query.mockResolvedValueOnce({
+        rows: [{}],
+        rowCount: 1,
+        command: "SELECT",
+        oid: 0,
+        fields: [],
+      });
+
+      const balance = await ledgerService.getBalance("wallet-123");
+
+      expect(balance).toBe(0);
+    });
   });
 
   describe("createEntry", () => {

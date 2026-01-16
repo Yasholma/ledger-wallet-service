@@ -6,7 +6,7 @@ import {
   validate,
   uuidSchema,
   positiveIntegerSchema,
-  nonEmptyStringSchema,
+  externalPaymentRefSchema,
 } from "../middleware/validation";
 import { idempotencyMiddleware } from "../middleware/idempotency";
 import { z } from "zod";
@@ -18,7 +18,7 @@ const fundWalletSchema = {
   body: z.object({
     walletId: uuidSchema,
     amount: positiveIntegerSchema,
-    externalPaymentRef: nonEmptyStringSchema,
+    externalPaymentRef: externalPaymentRefSchema,
   }),
 };
 

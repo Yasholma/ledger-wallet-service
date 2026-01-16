@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { walletService } from "../services/WalletService";
-import { validate, nonEmptyStringSchema } from "../middleware/validation";
+import { validate, emailSchema, nameSchema } from "../middleware/validation";
 import { z } from "zod";
 import { logger, createRequestId } from "../utils/logger";
 
@@ -8,8 +8,8 @@ const router = Router();
 
 const createUserSchema = {
   body: z.object({
-    email: z.string().email("Invalid email format"),
-    name: nonEmptyStringSchema,
+    email: emailSchema,
+    name: nameSchema,
   }),
 };
 

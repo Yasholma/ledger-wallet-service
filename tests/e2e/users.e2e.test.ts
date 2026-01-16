@@ -65,5 +65,35 @@ describe('E2E: Users API', () => {
       expect(response.body).toHaveProperty('error');
       expect(response.body.error).toBe('DUPLICATE_EMAIL');
     });
+
+    it('should return 400 for email exceeding 255 characters', async () => {
+      const longEmail = 'a'.repeat(250) + '@example.com'; // 262 characters
+      const response = await request(app)
+        .post('/api/v1/users')
+        .send({
+          email: longEmail,
+          name: 'Test User',
+        })
+        .expect(400);
+
+      expect(response.body).toHaveProperty('error');
+      expect(response.body.error).toBe('VALIDATION_ERROR');
+      expect(response.body.message).toContain('Email must not exceed 255 characters');
+    });
+
+    it('should return 400 for name exceeding 255 characters', async () => {
+      const longName = 'a'.repeat(256); // 256 characters
+      const response = await request(app)
+        .post('/api/v1/users')
+        .send({
+          email: 'test@example.com',
+          name: longName,
+        })
+        .expect(400);
+
+      expect(response.body).toHaveProperty('error');
+      expect(response.body.error).toBe('VALIDATION_ERROR');
+      expect(response.body.message).toContain('Name must not exceed 255 characters');
+    });
   });
 });

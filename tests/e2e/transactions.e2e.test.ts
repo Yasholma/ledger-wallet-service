@@ -151,6 +151,81 @@ describe("E2E: Transactions API", () => {
 
       expect(response.body).toHaveProperty("error");
     });
+
+    it("should return 400 for amount exceeding maximum limit", async () => {
+      const maxAmount = 1_000_000_000_000; // 10 billion dollars in cents
+      const response = await request(app)
+        .post("/api/v1/transactions/fund")
+        .set("Idempotency-Key", `fund-max-${Date.now()}`)
+        .send({
+          walletId: wallet1Id,
+          amount: maxAmount + 1,
+          externalPaymentRef: `payment-max-${Date.now()}`,
+        })
+        .expect(400);
+
+      expect(response.body).toHaveProperty("error");
+      expect(response.body.error).toBe("VALIDATION_ERROR");
+      expect(response.body.message).toContain(
+        "Amount exceeds maximum allowed value"
+      );
+    });
+
+    it("should return 400 for external payment ref exceeding 255 characters", async () => {
+      const longPaymentRef = "a".repeat(256); // 256 characters
+      const response = await request(app)
+        .post("/api/v1/transactions/fund")
+        .set("Idempotency-Key", `fund-long-ref-${Date.now()}`)
+        .send({
+          walletId: wallet1Id,
+          amount: 1000,
+          externalPaymentRef: longPaymentRef,
+        })
+        .expect(400);
+
+      expect(response.body).toHaveProperty("error");
+      expect(response.body.error).toBe("VALIDATION_ERROR");
+      expect(response.body.message).toContain(
+        "External payment reference must not exceed 255 characters"
+      );
+    });
+
+    it("should return 400 for idempotency key exceeding 255 characters", async () => {
+      const longIdempotencyKey = "a".repeat(256); // 256 characters
+      const response = await request(app)
+        .post("/api/v1/transactions/fund")
+        .set("Idempotency-Key", longIdempotencyKey)
+        .send({
+          walletId: wallet1Id,
+          amount: 1000,
+          externalPaymentRef: `payment-key-test-${Date.now()}`,
+        })
+        .expect(400);
+
+      expect(response.body).toHaveProperty("error");
+      expect(response.body.error).toBe("VALIDATION_ERROR");
+      expect(response.body.message).toContain(
+        "Idempotency key must not exceed 255 characters"
+      );
+    });
+
+    it("should return 400 for empty idempotency key", async () => {
+      const response = await request(app)
+        .post("/api/v1/transactions/fund")
+        .set("Idempotency-Key", "")
+        .send({
+          walletId: wallet1Id,
+          amount: 1000,
+          externalPaymentRef: `payment-empty-key-${Date.now()}`,
+        })
+        .expect(400);
+
+      expect(response.body).toHaveProperty("error");
+      expect(response.body.error).toBe("VALIDATION_ERROR");
+      expect(response.body.message).toContain(
+        "Idempotency key cannot be empty"
+      );
+    });
   });
 
   describe("POST /api/v1/transactions/transfer", () => {
@@ -291,6 +366,62 @@ describe("E2E: Transactions API", () => {
 
       expect(response.body).toHaveProperty("error");
       expect(response.body.error).toBe("WALLET_NOT_FOUND");
+    });
+
+    it("should return 400 for amount exceeding maximum limit", async () => {
+      const maxAmount = 1_000_000_000_000; // 10 billion dollars in cents
+      const response = await request(app)
+        .post("/api/v1/transactions/transfer")
+        .set("Idempotency-Key", `transfer-max-${Date.now()}`)
+        .send({
+          senderWalletId: wallet1Id,
+          receiverWalletId: wallet2Id,
+          amount: maxAmount + 1,
+        })
+        .expect(400);
+
+      expect(response.body).toHaveProperty("error");
+      expect(response.body.error).toBe("VALIDATION_ERROR");
+      expect(response.body.message).toContain(
+        "Amount exceeds maximum allowed value"
+      );
+    });
+
+    it("should return 400 for idempotency key exceeding 255 characters in transfer", async () => {
+      const longIdempotencyKey = "a".repeat(256); // 256 characters
+      const response = await request(app)
+        .post("/api/v1/transactions/transfer")
+        .set("Idempotency-Key", longIdempotencyKey)
+        .send({
+          senderWalletId: wallet1Id,
+          receiverWalletId: wallet2Id,
+          amount: 1000,
+        })
+        .expect(400);
+
+      expect(response.body).toHaveProperty("error");
+      expect(response.body.error).toBe("VALIDATION_ERROR");
+      expect(response.body.message).toContain(
+        "Idempotency key must not exceed 255 characters"
+      );
+    });
+
+    it("should return 400 for empty idempotency key in transfer", async () => {
+      const response = await request(app)
+        .post("/api/v1/transactions/transfer")
+        .set("Idempotency-Key", "")
+        .send({
+          senderWalletId: wallet1Id,
+          receiverWalletId: wallet2Id,
+          amount: 1000,
+        })
+        .expect(400);
+
+      expect(response.body).toHaveProperty("error");
+      expect(response.body.error).toBe("VALIDATION_ERROR");
+      expect(response.body.message).toContain(
+        "Idempotency key cannot be empty"
+      );
     });
   });
 
