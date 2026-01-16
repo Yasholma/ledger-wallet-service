@@ -57,8 +57,8 @@ The system uses five core tables:
 1. Clone the repository:
 
 ```bash
-git clone <repository-url>
-cd bmoni
+git clone https://github.com/Yasholma/ledger-wallet-service.git
+cd ledger-wallet-service
 ```
 
 2. Install dependencies:
